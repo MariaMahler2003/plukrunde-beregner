@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Plukrunde-beregner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: kompakt værktøj — sammenligning øverst, derefter fælles input + to scenariekort side om side */
+:root{
+  --bg:#EDF0F2; --panel:#FFFFFF; --ink:#1A2227; --muted:#5A6870; --line:#D2D9DE; --soft:#E4E9EC;
+  --accent:#D9580A; --steel:#2C5B88; --win:#1F7A5A; --winbg:#E1F2EA;
+  --c1:#2C5B88; --c2:#D9580A; --c3:#7D62A8; --c4:#2A8576; --c5:#B8921C;
+  --f-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13181B; --panel:#1B2226; --ink:#E4EAED; --muted:#93A2AB; --line:#2D383F; --soft:#232C31;
+  --accent:#F2813C; --steel:#73A3D3; --win:#5CC79C; --winbg:#173328;
+  --c1:#73A3D3; --c2:#F2813C; --c3:#A98FD2; --c4:#4FB5A4; --c5:#D9B947; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13181B; --panel:#1B2226; --ink:#E4EAED; --muted:#93A2AB; --line:#2D383F; --soft:#232C31;
+  --accent:#F2813C; --steel:#73A3D3; --win:#5CC79C; --winbg:#173328;
+  --c1:#73A3D3; --c2:#F2813C; --c3:#A98FD2; --c4:#4FB5A4; --c5:#D9B947; color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+.wrap{max-width:1240px;margin:0 auto;display:grid;gap:22px}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;letter-spacing:.01em;margin:0;text-wrap:balance}
+h1{font-size:2.4rem;line-height:1}
+h2{font-size:1.45rem}
+h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-family:var(--f-body);font-weight:600}
+p{margin:0}
+.lede{color:var(--muted);max-width:68ch;margin-top:6px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:12px}
+.btn{font:600 .85rem var(--f-body);background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 12px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;min-width:0}
+.verdict{display:grid;gap:4px;margin-top:10px}
+.verdict p{font-size:1rem}
+.verdict b{color:var(--accent)}
+.tbl-wrap{overflow-x:auto;margin-top:12px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--soft);white-space:nowrap}
+th:first-child,td:first-child{text-align:left;white-space:normal}
+thead th{font:600 .78rem var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--line)}
+td.num{font-family:var(--f-mono);font-size:.9rem}
+td.win{color:var(--win);background:var(--winbg);font-weight:500}
+tr.sep td{border-top:1px solid var(--line)}
+
+.chart{display:grid;gap:10px;margin-top:14px}
+.bar-row{display:grid;grid-template-columns:minmax(90px,160px) 1fr auto;gap:10px;align-items:center}
+.bar-row .lbl{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar{display:flex;height:26px;background:var(--soft);border-radius:4px;overflow:hidden}
+.bar span{height:100%}
+.bar-row .tot{font-family:var(--f-mono);font-size:.9rem}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.85rem;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start}
+@media (max-width:980px){.grid3{grid-template-columns:1fr}}
+.form{display:grid;gap:9px}
+.form h3{margin-top:10px}
+.form h3:first-child{margin-top:0}
+.field{display:grid;grid-template-columns:1fr minmax(0,128px);gap:10px;align-items:center;font-size:.92rem}
+.inp{display:flex;align-items:center;gap:6px}
+.inp em{font-style:normal;color:var(--muted);font-size:.78rem;min-width:34px}
+input,select{font:inherit;font-family:var(--f-mono);font-size:.88rem;width:100%;min-width:0;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:5px 7px}
+select{font-family:var(--f-body)}
+.field.wide{grid-template-columns:1fr}
+.name-in{font:700 1.35rem var(--f-display);background:transparent;border:0;border-bottom:1px dashed var(--line);border-radius:0;padding:2px 0;width:100%}
+.tag{display:inline-block;font:600 .72rem var(--f-body);letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:3px;color:#fff;background:var(--c1)}
+.tag.b{background:var(--accent)}
+.plan{margin-top:12px;border-top:1px solid var(--soft);padding-top:12px}
+.plan svg{width:100%;height:auto;max-height:280px;display:block}
+.plan figcaption{font-size:.8rem;color:var(--muted);margin-top:6px}
+svg .floor{fill:var(--soft)}
+svg .rack{fill:var(--accent)}
+svg .rackline{fill:none;stroke:var(--line)}
+svg .pack{fill:var(--steel)}
+.steps-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:12px}
+@media (max-width:980px){.steps-grid{grid-template-columns:1fr}}
+.steps-grid > div{min-width:0}
+.steps-head{display:flex;align-items:center;gap:8px;font-weight:600}
+table.steps th:nth-child(2),table.steps td.f{text-align:left}
+table.steps td.f{color:var(--muted);font-family:var(--f-mono);font-size:.8rem;white-space:normal;min-width:180px}
+table.steps tr.grp td{font-weight:600;padding-top:16px;border-bottom:1px solid var(--line)}
+table.assume th:nth-child(n+3),table.assume td:nth-child(n+3){text-align:left}
+table.assume td.why{white-space:normal;color:var(--muted);min-width:240px}
+table.assume tr.grp td{font-weight:600;padding-top:16px;border-bottom:1px solid var(--line)}
+.src{display:inline-block;font:600 .72rem var(--f-body);letter-spacing:.03em;padding:2px 7px;border-radius:3px;white-space:nowrap}
+.src.c{background:var(--winbg);color:var(--win)}
+.src.f{background:var(--soft);color:var(--ink)}
+.src.a{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent)}
+.src.u{background:color-mix(in srgb,var(--steel) 16%,transparent);color:var(--steel)}
+.src-key{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:.85rem;color:var(--muted)}
+.notes{display:grid;gap:8px;color:var(--muted);font-size:.9rem;max-width:90ch}
+.notes ul{margin:0;padding-left:18px;display:grid;gap:5px}
+.notes b{color:var(--ink)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Plukrunde-beregner</h1>
+      <p class="lede">Indtast antal gange, pallepladser og ordreprofil for to lagerlayouts. Beregneren viser, hvor langt der køres pr. plukrunde, hvor lang tid det tager og hvad det koster. Eksemplet bruger Hammelev fra casen og München med antagne mål.</p>
+    </div>
+    <button class="btn" id="reset" type="button">Nulstil til eksempel</button>
+  </header>
+
+  <section class="panel" aria-labelledby="cmp-h">
+    <h2 id="cmp-h">Sammenligning</h2>
+    <div class="verdict" id="verdict"></div>
+    <div class="tbl-wrap"><table id="cmp"></table></div>
+    <h3 style="margin-top:20px">Tid pr. ordre, fordelt på aktivitet</h3>
+    <div class="chart" id="chart"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <div class="grid3">
+    <section class="panel"><div class="form" id="shared"></div></section>
+    <section class="panel" id="card-a"></section>
+    <section class="panel" id="card-b"></section>
+  </div>
+
+  <section class="panel" aria-labelledby="assume-h">
+    <h2 id="assume-h">Antagelser</h2>
+    <p class="lede">Alle tal, beregneren bruger, med kilde og begrundelse. Tabellen følger felterne, så et tal, du ændrer, bliver markeret som ændret.</p>
+    <div class="src-key"><span><span class="src c">Casen</span> står i casen</span><span><span class="src f">Fortolkning</span> udledt af casens tekst</span><span><span class="src a">Antaget</span> skøn, casen oplyser det ikke</span><span><span class="src u">Ændret</span> du har ændret standardtallet</span></div>
+    <div class="tbl-wrap"><table class="assume" id="assume"></table></div>
+  </section>
+
+  <section class="panel" aria-labelledby="steps-h">
+    <h2 id="steps-h">Mellemregninger</h2>
+    <p class="lede">Alle trin med de tal, der står i felterne lige nu. Tallene er afrundet, så en udregning kan afvige lidt i sidste decimal. "Vægtet" betyder et gennemsnit over alle pladser, hvor pladser, der plukkes ofte, tæller mest.</p>
+    <div class="steps-grid">
+      <div><div class="steps-head"><span class="tag">Layout A</span><span id="a_stname"></span></div><div class="tbl-wrap" id="a_steps"></div></div>
+      <div><div class="steps-head"><span class="tag b">Layout B</span><span id="b_stname"></span></div><div class="tbl-wrap" id="b_steps"></div></div>
+    </div>
+  </section>
+
+  <section class="panel notes" aria-labelledby="how-h">
+    <h2 id="how-h" style="color:var(--ink)">Sådan regner beregneren</h2>
+    <ul>
+      <li><b>Geometri.</b> Hver gang har én reol på hver side med én palle i dybden. Reolerne mellem gangene står ryg mod ryg. Pakkeområdet ligger midt foran gangene eller ud for første gang, som valgt under Modelantagelser. Afstande måles vinkelret (først på tværs, så ind i gangen).</li>
+      <li><b>Hent pallen til pakkeområdet</b> (Hammelev). For hver ordrelinje køres pallen ud til pakkeområdet og bagefter tilbage til samme plads. Tilbageturen springes over, når pallen bliver tømt. Det sker med sandsynligheden stole pr. linje ÷ stole pr. palle. Løftetiden stiger med niveauet.</li>
+      <li><b>Pluk fra palle på gulvplads</b> (München). Plukkeren tager flere ordrer pr. runde og samler fra pallerne i gulvniveau. Ruten simuleres det antal gange, der står under Modelantagelser, med enten S-form eller returrute. Når en gulvpalle er tom, henter en truck en ny fra et højere niveau. Det tæller som genopfyldning.</li>
+      <li><b>Placering.</b> Ved "Mest solgte tættest på pakkeområdet" sorteres pladserne efter, hvor hurtigt man kan nå dem. Pluk fordeles efter en ABC-kurve, hvor den andel af pladserne, der regnes som mest solgte, får den andel af plukkene, du angiver. Ved "Tilfældig" er alle pladser lige sandsynlige.</li>
+      <li><b>Omkostning.</b> Løn er arbejdstimer × timeløn × arbejdsdage. Lageromkostning er areal × husleje. Arealet omfatter reoler, gange, afstanden til pakkeområdet og tværgangen bagest.</li>
+      <li>Modellen er en forenkling til sammenligning af layouts. Den tager ikke højde for kø ved trucks, ventetid eller at lageret i München deles med andre virksomheder.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+const DEF = {
+  sh:{orders:120,lines:2,cpl:4,cpp:24,abc:80,speed:1.4,lift:6,pfix:20,handle:25,stop:10,wage:375,rent:650,days:250,
+      pack:'center',back:2,sExtra:1,abcTop:20,rmoves:3,rlvl:50,runs:2000},
+  a:{name:'Hammelev',aisles:6,len:30,levels:5,pw:1.1,rd:1.2,aw:3.2,fw:5,method:'shuttle',placement:'near',route:'s',batch:1},
+  b:{name:'München',aisles:4,len:25,levels:3,pw:1.1,rd:1.2,aw:3.2,fw:5,method:'floor',placement:'random',route:'s',batch:3}
+};
+const SH_FIELDS = [
+  {g:'Ordreprofil (fælles)'},
+  {id:'orders',l:'Ordrer pr. dag',min:1,max:100000,step:1},
+  {id:'lines',l:'Ordrelinjer pr. ordre',min:1,max:50,step:0.5},
+  {id:'cpl',l:'Stole pr. ordrelinje',min:1,max:500,step:1},
+  {id:'cpp',l:'Stole pr. palle',min:1,max:500,step:1},
+  {id:'abc',l:'Andel af pluk på de mest solgte varer',u:'%',min:5,max:95,step:5},
+  {g:'Tider'},
+  {id:'speed',l:'Kørehastighed',u:'m/s',min:0.3,max:5,step:0.1},
+  {id:'lift',l:'Løftetid pr. niveau',u:'s',min:0,max:60,step:1},
+  {id:'pfix',l:'Tage eller sætte en palle',u:'s',min:0,max:120,step:1},
+  {id:'handle',l:'Pluk og pak pr. stol',u:'s',min:0,max:600,step:1},
+  {id:'stop',l:'Stop pr. ordrelinje',u:'s',min:0,max:120,step:1},
+  {g:'Omkostninger'},
+  {id:'wage',l:'Timeløn inkl. truck',u:'kr/t',min:0,max:5000,step:5},
+  {id:'rent',l:'Husleje',u:'kr/m²/år',min:0,max:10000,step:10},
+  {id:'days',l:'Arbejdsdage pr. år',min:1,max:365,step:1},
+  {g:'Modelantagelser'},
+  {id:'pack',l:'Pakkeområdets placering',sel:[['center','Midt foran gangene'],['first','Ud for første gang']]},
+  {id:'abcTop',l:'Andel af varerne, der regnes som mest solgte',u:'%',min:5,max:50,step:5},
+  {id:'back',l:'Tværgang bagest',u:'m',min:0,max:20,step:0.5},
+  {id:'sExtra',l:'Ekstra vej ud i tværgangen pr. gang (S-rute)',u:'m',min:0,max:10,step:0.5},
+  {id:'rmoves',l:'Pallehåndteringer pr. genopfyldning',min:0,max:10,step:1},
+  {id:'rlvl',l:'Reservepallens gns. højde i % af niveauerne',u:'%',min:0,max:100,step:5},
+  {id:'runs',l:'Simulerede plukrunder',min:200,max:20000,step:100}
+];
+const SRC = {c:'Casen', f:'Fortolkning', a:'Antaget', u:'Ændret'};
+const ASSUME = {
+  sh:{
+    orders:['a','Casen oplyser ikke ordremængden. Ordrerne ringes ind ("phoned in").'],
+    lines:['a','Casen oplyser ikke ordrestørrelsen. Mange varianter (armlæn, læder eller stof, farve, hjul) giver flere linjer pr. ordre.'],
+    cpl:['a','Casen oplyser det ikke. Halvdelen sælges til forhandlere, som typisk køber flere ens stole.'],
+    cpp:['a','Casen oplyser det ikke. Skøn for kontorstole pakket i kasser.'],
+    abc:['a','Pareto-princippet (80/20).'],
+    speed:['a','Gennemsnit for en truck inkl. sving og opbremsning.'],
+    lift:['a','Skøn for at hæve eller sænke gaflerne ét niveau.'],
+    pfix:['a','Skøn for at køre gaflerne ind og løfte pallen fri.'],
+    handle:['a','Skøn. Casen siger, at alle produkter er "relatively expensive", så de håndteres forsigtigt.'],
+    stop:['a','Finde pladsen, scanne og bekræfte.'],
+    wage:['a','Skøn for lagermedarbejder inkl. omkostning til truck.'],
+    rent:['a','Skøn for lagerleje.'],
+    days:['a','Hverdage minus helligdage.'],
+    pack:['a','Casen nævner "the packing area" i Hammelev, men ikke hvor det ligger.'],
+    abcTop:['a','Klassisk ABC-grænse (20 % af varerne).'],
+    back:['a','Nødvendig for at kunne gå S-ruten.'],
+    sExtra:['a','Vejen fra sidste plads ud i tværgangen.'],
+    rmoves:['a','Casen: "a new pallet ... is picked up and put into the position". Skøn: ny palle ned, sæt på gulvet, fjern den tomme.'],
+    rlvl:['a','Casen siger ikke, hvorfra den nye palle hentes. Antaget fordelt jævnt i højden.'],
+    runs:['a','Nok til at gennemsnittet er stabilt.']
+  },
+  a:{
+    aisles:['c','"There are 6 aisles"'],
+    len:['c','"access to 30 pallets in length"'],
+    levels:['c','"5 pallets high"'],
+    pw:['a','Casen oplyser ikke målene. Palle plus stolper og frigang.'],
+    rd:['f','"one in depth on each side" svarer til én pallelængde, ca. 1,2 m.'],
+    aw:['a','Casen oplyser ikke gangbredden. Typisk bredde for en reachtruck i et højlager.'],
+    fw:['a','Casen nævner pakkeområdet, men ikke hvor langt der er til det.'],
+    method:['f','Casen: "the pallet is put back the same place". At pallen køres hen til pakkeområdet for at plukke, står ikke direkte.'],
+    placement:['f','Casen: "chairs are selected which are closest to the packing area". Reglen gælder valget mellem paller. At de mest solgte varer står forrest, er en fortolkning.']
+  },
+  b:{
+    aisles:['a','Casen siger kun "one-third of a warehouse". Antal gange står ikke.'],
+    len:['a','Casen oplyser ikke lagerets størrelse.'],
+    levels:['c','"only three pallets high". Det står ikke, om det er reoler eller stablede paller.'],
+    pw:['a','Casen oplyser ikke målene. Sat som i Hammelev.'],
+    rd:['a','Casen oplyser ikke målene. Sat som i Hammelev.'],
+    aw:['a','Casen oplyser ikke målene. Sat som i Hammelev.'],
+    fw:['a','Casen nævner ikke et pakkeområde i München.'],
+    method:['c','"All opened pallets are located on the floor in permanent locations."'],
+    placement:['f','Casen: "permanent locations". Det står ikke, at pladserne er fordelt efter salg, så de regnes som tilfældige.'],
+    route:['a','Casen beskriver ikke ruten.'],
+    batch:['a','Casen oplyser det ikke. Kunderne beleveres "mainly in the evening", så flere ordrer kan samles pr. runde.']
+  }
+};
+const SC_FIELDS = [
+  {g:'Layout'},
+  {id:'aisles',l:'Antal gange',min:1,max:40,step:1},
+  {id:'len',l:'Pallepladser i længden pr. side',min:1,max:200,step:1},
+  {id:'levels',l:'Niveauer i højden',min:1,max:12,step:1},
+  {id:'pw',l:'Bredde pr. palleplads',u:'m',min:0.5,max:3,step:0.1},
+  {id:'rd',l:'Reoldybde',u:'m',min:0.5,max:3,step:0.1},
+  {id:'aw',l:'Gangbredde',u:'m',min:1,max:8,step:0.1},
+  {id:'fw',l:'Pakkeområde til gangene',u:'m',min:0,max:100,step:1},
+  {g:'Plukmetode'},
+  {id:'method',l:'Metode',sel:[['shuttle','Hent pallen til pakkeområdet'],['floor','Pluk fra palle på gulvplads']]},
+  {id:'placement',l:'Placering af varer',sel:[['near','Mest solgte tættest på pakkeområdet'],['random','Tilfældig']]},
+  {id:'route',l:'Rute',sel:[['s','S-form (gennem hele gangen)'],['ret','Retur (ind og ud samme ende)']],only:'floor'},
+  {id:'batch',l:'Ordrer pr. plukrunde',min:1,max:50,step:1,only:'floor'}
+];
+const CATS = [['drive','Kørsel','--c1'],['lift','Løft i højden','--c3'],['pallet','Tage og sætte paller','--c5'],['pick','Pluk og pak stole','--c4'],['replen','Genopfyldning','--c2']];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nf = (v,d=0) => (isFinite(v)?v:0).toLocaleString('da-DK',{minimumFractionDigits:d,maximumFractionDigits:d});
+
+function fieldHTML(f, p){
+  if(f.g) return `<h3>${f.g}</h3>`;
+  const id = p+f.id, only = f.only ? ` data-only="${f.only}"` : '';
+  if(f.sel) return `<label class="field wide"${only}><span>${f.l}</span><select id="${id}">${f.sel.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select></label>`;
+  return `<label class="field"${only}><span>${f.l}</span><span class="inp"><input id="${id}" type="number" inputmode="decimal" min="${f.min}" max="${f.max}" step="${f.step}">${f.u?`<em>${f.u}</em>`:'<em></em>'}</span></label>`;
+}
+$('shared').innerHTML = SH_FIELDS.map(f=>fieldHTML(f,'sh_')).join('');
+for (const k of ['a','b']){
+  $('card-'+k).innerHTML = `<span class="tag ${k}">Layout ${k.toUpperCase()}</span>
+    <input class="name-in" id="${k}_name" type="text" aria-label="Navn på layout ${k.toUpperCase()}">
+    <div class="form" style="margin-top:12px">${SC_FIELDS.map(f=>fieldHTML(f,k+'_')).join('')}</div>
+    <figure class="plan" style="margin:12px 0 0"><div id="${k}_svg"></div>
+    <figcaption>Set ovenfra med pakkeområdet nederst. Jo mørkere en plads er, jo flere pluk sker der fra den.</figcaption></figure>`;
+}
+
+function fill(st){
+  for (const f of SH_FIELDS) if(f.id) $('sh_'+f.id).value = st.sh[f.id];
+  for (const k of ['a','b']){ $(k+'_name').value = st[k].name; for (const f of SC_FIELDS) if(f.id) $(k+'_'+f.id).value = st[k][f.id]; }
+}
+function num(el, f, d){ let v = parseFloat(String(el.value).replace(',','.')); if(!isFinite(v)) v = d; return Math.min(f.max, Math.max(f.min, v)); }
+function read(){
+  const st = {sh:{},a:{},b:{}};
+  for (const f of SH_FIELDS) if(f.id) st.sh[f.id] = f.sel ? $('sh_'+f.id).value : num($('sh_'+f.id), f, DEF.sh[f.id]);
+  for (const k of ['a','b']){
+    st[k].name = $(k+'_name').value.trim() || ('Layout '+k.toUpperCase());
+    for (const f of SC_FIELDS) if(f.id) st[k][f.id] = f.sel ? $(k+'_'+f.id).value : num($(k+'_'+f.id), f, DEF[k][f.id]);
+  }
+  return st;
+}
+
+function weights(costs, mode, abc, top){
+  const N = costs.length, w = new Float64Array(N);
+  if (mode === 'random' || abc <= top){ w.fill(1/N); return w; }
+  const s = Math.log(abc/100)/Math.log(top/100);
+  const idx = Array.from({length:N},(_,i)=>i).sort((a,b)=>costs[a]-costs[b]);
+  let prev = 0;
+  idx.forEach((i,k)=>{ const F = Math.pow((k+1)/N, s); w[i] = F-prev; prev = F; });
+  return w;
+}
+function rng(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; let t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+
+function model(sc, sh){
+  const n = Math.round(sc.aisles), L = Math.round(sc.len), H = Math.round(sc.levels);
+  const pitch = sc.aw + 2*sc.rd, W = n*pitch, aLen = L*sc.pw, depth = sc.fw + aLen + sh.back;
+  const ax = i => i*pitch + sc.rd + sc.aw/2;
+  const xd = sh.pack === 'first' ? ax(0) : W/2;
+  const locs = [];
+  for (let i=0;i<n;i++) for (let side=0;side<2;side++) for (let j=0;j<L;j++){
+    const y = (j+0.5)*sc.pw;
+    locs.push({i,side,j,y,d:Math.abs(ax(i)-xd)+sc.fw+y});
+  }
+  const q = Math.min(1, sh.cpl/sh.cpp);
+  const chairsDay = sh.orders*sh.lines*sh.cpl;
+  const pickLine = sh.stop + sh.cpl*sh.handle;
+  const r = {n,L,H,W,xd,depth,pitch,aLen,chairsDay,area:W*depth,places:n*2*L*H,heat:new Float64Array(locs.length),locs};
+  if (sc.method === 'shuttle'){
+    const costs = [], ref = [];
+    locs.forEach((l,li)=>{ for(let h=0;h<H;h++){ costs.push(l.d/sh.speed + h*sh.lift); ref.push(li*H+h); } });
+    const w = weights(costs, sc.placement, sh.abc, sh.abcTop);
+    let Ed = 0, Eh = 0;
+    for (let k=0;k<w.length;k++){ const li = Math.floor(ref[k]/H), h = ref[k]%H; Ed += w[k]*locs[li].d; Eh += w[k]*h; r.heat[li] += w[k]; }
+    const f = 1 + (1-q); // tur ud + evt. tur tilbage med restpallen
+    Object.assign(r, {Ed, Eh, q, f});
+    r.ordersPerRound = 1;
+    r.distRound = 2*Ed*f*sh.lines;
+    r.perOrder = {drive:r.distRound/sh.speed, lift:2*Eh*sh.lift*f*sh.lines, pallet:2*sh.pfix*f*sh.lines, pick:pickLine*sh.lines, replen:0};
+  } else {
+    const w = weights(locs.map(l=>l.d), sc.placement, sh.abc, sh.abcTop);
+    r.heat.set(w);
+    const cum = new Float64Array(w.length); let acc = 0; let Ed = 0;
+    w.forEach((x,k)=>{ acc += x; cum[k] = acc; Ed += x*locs[k].d; });
+    const B = Math.round(sc.batch), k = Math.max(1, Math.round(B*sh.lines)), R = Math.round(sh.runs), rand = rng(12345);
+    let total = 0, sm = 0, sHz = 0, sVt = 0;
+    for (let t=0;t<R;t++){
+      const maxY = new Map();
+      for (let p=0;p<k;p++){
+        const u = rand()*acc; let lo = 0, hi = cum.length-1;
+        while (lo<hi){ const m = (lo+hi)>>1; if (cum[m] < u) lo = m+1; else hi = m; }
+        const l = locs[lo]; maxY.set(l.i, Math.max(maxY.get(l.i)||0, l.y));
+      }
+      const ai = [...maxY.keys()].sort((a,b)=>a-b), m = ai.length;
+      const horiz = 2*(Math.max(ax(ai[m-1]),xd) - Math.min(ax(ai[0]),xd));
+      let vert;
+      if (sc.route === 's') vert = m%2===0 ? m*(aLen+sh.sExtra) : (m-1)*(aLen+sh.sExtra) + 2*maxY.get(ai[m-1]);
+      else { vert = 0; for (const i of ai) vert += 2*maxY.get(i); }
+      sm += m; sHz += horiz; sVt += vert;
+      total += 2*sc.fw + horiz + vert;
+    }
+    r.ordersPerRound = B;
+    r.distRound = total/R;
+    const pallets = chairsDay/sh.cpp;
+    const replenEach = 2*Ed/sh.speed + sh.rmoves*sh.pfix + 2*(H>1 ? H*sh.rlvl/100 : 0)*sh.lift;
+    Object.assign(r, {Ed, q, B, k, mAvg:sm/R, horizAvg:sHz/R, vertAvg:sVt/R, pallets, replenEach});
+    r.perOrder = {drive:r.distRound/sh.speed/B, lift:0, pallet:0, pick:pickLine*sh.lines, replen:pallets*replenEach/sh.orders};
+  }
+  r.secOrder = Object.values(r.perOrder).reduce((a,b)=>a+b,0);
+  r.secRound = (r.secOrder - r.perOrder.replen)*r.ordersPerRound;
+  r.hoursDay = r.secOrder*sh.orders/3600;
+  r.labor = r.hoursDay*sh.wage*sh.days;
+  r.space = r.area*sh.rent;
+  r.total = r.labor + r.space;
+  r.perChair = r.labor/(chairsDay*sh.days);
+  r.m2Place = r.area/r.places;
+  return r;
+}
+
+function steps(sc, sh, r){
+  const m = (v,d=1) => (isFinite(v)?v:0).toLocaleString('da-DK',{minimumFractionDigits:Number.isInteger(v)?0:d,maximumFractionDigits:d});
+  const sec = v => `${nf(v,0)} s`;
+  const S = [];
+  const g = t => S.push(`<tr class="grp"><td colspan="3">${t}</td></tr>`);
+  const s = (l,f,v) => S.push(`<tr><td>${l}</td><td class="f">${f}</td><td class="num">${v}</td></tr>`);
+  const po = r.perOrder;
+  g('Ordreprofil');
+  s('Stole pr. dag', `${m(sh.orders,0)} ordrer × ${m(sh.lines)} linjer × ${m(sh.cpl,0)} stole`, `${m(r.chairsDay,0)} stole`);
+  g('Layout og areal');
+  s('Afstand fra gang til gang', `${m(sc.aw)} m gang + 2 × ${m(sc.rd)} m reol`, `${m(r.pitch)} m`);
+  s('Lagerets bredde', `${r.n} gange × ${m(r.pitch)} m`, `${m(r.W)} m`);
+  s('Lagerets dybde', `${m(sc.fw)} m til pakkeområdet + ${r.L} × ${m(sc.pw)} m + ${m(sh.back)} m tværgang`, `${m(r.depth)} m`);
+  s('Areal', `${m(r.W)} m × ${m(r.depth)} m`, `${m(r.area,0)} m²`);
+  s('Pallepladser', `${r.n} gange × 2 sider × ${r.L} × ${r.H} niveauer`, m(r.places,0));
+  s('m² pr. palleplads', `${m(r.area,0)} m² ÷ ${m(r.places,0)}`, `${m(r.m2Place,2)} m²`);
+  if (sc.method === 'shuttle'){
+    g('Kørsel: pallen hentes til pakkeområdet');
+    s('Gns. afstand til pallen', 'vægtet efter hvor ofte hver plads plukkes', `${m(r.Ed)} m`);
+    s('Sandsynlighed for at pallen tømmes', `${m(sh.cpl,0)} ÷ ${m(sh.cpp,0)} stole`, `${m(r.q*100,0)} %`);
+    s('Ture frem og tilbage pr. linje', `1 + (1 − ${m(r.q,2)})`, m(r.f,2));
+    s('Meter pr. ordre (= pr. plukrunde)', `2 × ${m(r.Ed)} m × ${m(r.f,2)} × ${m(sh.lines)} linjer`, `${m(r.distRound)} m`);
+    s('Køretid pr. ordre', `${m(r.distRound)} m ÷ ${m(sh.speed)} m/s`, sec(po.drive));
+    g('Løft og paller');
+    s('Gns. niveau over gulvet', 'vægtet, 0 = gulvniveau', m(r.Eh,2));
+    s('Løftetid pr. ordre', `2 × ${m(r.Eh,2)} × ${m(sh.lift,0)} s × ${m(r.f,2)} × ${m(sh.lines)} linjer`, sec(po.lift));
+    s('Tage og sætte paller pr. ordre', `2 × ${m(sh.pfix,0)} s × ${m(r.f,2)} × ${m(sh.lines)} linjer`, sec(po.pallet));
+  } else {
+    g('Kørsel: pluk fra gulvplads');
+    s('Ordrelinjer pr. plukrunde', `${r.B} ordrer × ${m(sh.lines)} linjer`, r.k);
+    s('Gns. antal gange besøgt', `simuleret over ${m(sh.runs,0)} runder`, m(r.mAvg,2));
+    s('Til og fra gangene', `2 × ${m(sc.fw)} m`, `${m(2*sc.fw)} m`);
+    s('På tværs af gangene', 'gns. af simuleringen', `${m(r.horizAvg)} m`);
+    s('Inde i gangene', sc.route === 's' ? 'S-form, gns. af simuleringen' : 'returrute, gns. af simuleringen', `${m(r.vertAvg)} m`);
+    s('Meter pr. plukrunde', `${m(2*sc.fw)} + ${m(r.horizAvg)} + ${m(r.vertAvg)} m`, `${m(r.distRound)} m`);
+    s('Meter pr. ordre', `${m(r.distRound)} m ÷ ${r.B} ordrer`, `${m(r.distRound/r.B)} m`);
+    s('Køretid pr. ordre', `${m(r.distRound/r.B)} m ÷ ${m(sh.speed)} m/s`, sec(po.drive));
+    g('Genopfyldning');
+    s('Tomme paller pr. dag', `${m(r.chairsDay,0)} stole ÷ ${m(sh.cpp,0)} stole pr. palle`, m(r.pallets,1));
+    s('Gns. afstand til pladsen', 'vægtet efter hvor ofte hver plads plukkes', `${m(r.Ed)} m`);
+    s('Tid pr. genopfyldning', `2 × ${m(r.Ed)} m ÷ ${m(sh.speed)} m/s + ${m(sh.rmoves,0)} × ${m(sh.pfix,0)} s + 2 × ${m(r.H>1?r.H*sh.rlvl/100:0,1)} niveauer × ${m(sh.lift,0)} s`, sec(r.replenEach));
+    s('Genopfyldning pr. ordre', `${m(r.pallets,1)} paller × ${m(r.replenEach,0)} s ÷ ${m(sh.orders,0)} ordrer`, sec(po.replen));
+  }
+  g('Pluk og samlet tid');
+  s('Pluk og pak pr. ordre', `${m(sh.lines)} linjer × (${m(sh.stop,0)} s + ${m(sh.cpl,0)} stole × ${m(sh.handle,0)} s)`, sec(po.pick));
+  s('Tid pr. ordre', CATS.filter(([k])=>po[k]>0).map(([k])=>sec(po[k])).join(' + '), `${m(r.secOrder,0)} s = ${m(r.secOrder/60,1)} min`);
+  g('Omkostninger');
+  s('Arbejdstimer pr. dag', `${m(r.secOrder,0)} s × ${m(sh.orders,0)} ordrer ÷ 3.600`, `${m(r.hoursDay,1)} t`);
+  s('Løn pr. år', `${m(r.hoursDay,1)} t × ${m(sh.wage,0)} kr × ${m(sh.days,0)} dage`, `${m(r.labor,0)} kr`);
+  s('Plukomkostning pr. stol', `${m(r.labor,0)} kr ÷ (${m(r.chairsDay,0)} stole × ${m(sh.days,0)} dage)`, `${m(r.perChair,2)} kr`);
+  s('Lageromkostning pr. år', `${m(r.area,0)} m² × ${m(sh.rent,0)} kr`, `${m(r.space,0)} kr`);
+  s('Samlet pr. år', `${m(r.labor,0)} kr + ${m(r.space,0)} kr`, `${m(r.total,0)} kr`);
+  return `<table class="steps"><thead><tr><th>Trin</th><th>Udregning</th><th>Resultat</th></tr></thead><tbody>${S.join('')}</tbody></table>`;
+}
+
+function assumptions(st){
+  const fmt = (f,v) => f.sel ? ((f.sel.find(o=>o[0]===v)||[,v])[1]) : nf(v, Number.isInteger(v)?0:1) + (f.u ? ' '+f.u : '');
+  const rows = [];
+  const grp = t => rows.push(`<tr class="grp"><td colspan="4">${t}</td></tr>`);
+  const row = (f, v, d, spec) => {
+    const [src, why] = spec || ['a','Ikke beskrevet i casen.'];
+    const changed = v !== d;
+    const s = changed ? 'u' : src;
+    rows.push(`<tr><td>${f.l}</td><td class="num">${esc(fmt(f,v))}</td><td><span class="src ${s}">${SRC[s]}</span></td><td class="why">${changed ? 'Standardværdien var ' + esc(fmt(f,d)) + '.' : why}</td></tr>`);
+  };
+  grp('Fælles for begge layouts');
+  for (const f of SH_FIELDS) if (f.id) row(f, st.sh[f.id], DEF.sh[f.id], ASSUME.sh[f.id]);
+  for (const k of ['a','b']){
+    grp(`Layout ${k.toUpperCase()}: ${esc(st[k].name)}`);
+    for (const f of SC_FIELDS) if (f.id && (!f.only || f.only === st[k].method)) row(f, st[k][f.id], DEF[k][f.id], ASSUME[k][f.id]);
+  }
+  return `<thead><tr><th>Tal</th><th>Værdi</th><th>Kilde</th><th>Begrundelse</th></tr></thead><tbody>${rows.join('')}</tbody>`;
+}
+
+function svgPlan(sc, r){
+  const pad = 0.6, Wm = r.W, D = r.depth;
+  const max = Math.max(...r.heat) || 1;
+  let out = `<svg viewBox="${-pad} ${-pad} ${Wm+2*pad} ${D+2*pad}" role="img" aria-label="Plantegning af ${esc(sc.name)}"><rect class="floor" x="0" y="0" width="${Wm}" height="${D}"/>`;
+  r.locs.forEach((l,k)=>{
+    const x = l.i*r.pitch + (l.side ? sc.rd + sc.aw : 0);
+    const y = D - sc.fw - (l.j+1)*sc.pw;
+    const o = (0.1 + 0.9*r.heat[k]/max).toFixed(3);
+    out += `<rect class="rack" x="${x.toFixed(2)}" y="${(y+0.04*sc.pw).toFixed(2)}" width="${sc.rd}" height="${(0.92*sc.pw).toFixed(2)}" fill-opacity="${o}"/>`;
+  });
+  const pw = Math.min(Math.max(Wm*0.3, 3), Wm), ph = Math.max(sc.fw*0.6, 0.8);
+  const px = Math.min(Math.max(r.xd - pw/2, 0), Wm - pw);
+  out += `<rect class="pack" x="${px.toFixed(2)}" y="${(D-ph).toFixed(2)}" width="${pw.toFixed(2)}" height="${ph.toFixed(2)}" rx="0.3"/></svg>`;
+  return out;
+}
+
+function render(){
+  const st = read();
+  try { localStorage.setItem('plukrunde-v1', JSON.stringify(st)); } catch(e){}
+  for (const k of ['a','b']) document.querySelectorAll(`#card-${k} [data-only]`).forEach(el => el.hidden = st[k].method !== el.dataset.only);
+  const A = model(st.a, st.sh), B = model(st.b, st.sh), na = esc(st.a.name), nb = esc(st.b.name);
+  $('a_svg').innerHTML = svgPlan(st.a, A);
+  $('b_svg').innerHTML = svgPlan(st.b, B);
+  $('assume').innerHTML = assumptions(st);
+  $('a_stname').textContent = st.a.name; $('b_stname').textContent = st.b.name;
+  $('a_steps').innerHTML = steps(st.a, st.sh, A);
+  $('b_steps').innerHTML = steps(st.b, st.sh, B);
+
+  const rows = [
+    ['Meter pr. plukrunde (ikke sammenlignelig ved forskellige ordrer pr. runde)', A.distRound, B.distRound, null, 0],
+    ['Ordrer pr. plukrunde', A.ordersPerRound, B.ordersPerRound, null, 0],
+    ['Minutter pr. plukrunde', A.secRound/60, B.secRound/60, null, 1],
+    ['Meter pr. ordre', A.distRound/A.ordersPerRound, B.distRound/B.ordersPerRound, 'low', 0],
+    ['Minutter pr. ordre (inkl. genopfyldning)', A.secOrder/60, B.secOrder/60, 'low', 1],
+    ['Arbejdstimer pr. dag', A.hoursDay, B.hoursDay, 'low', 1],
+    ['Plukomkostning pr. stol', A.perChair, B.perChair, 'low', 2, ' kr'],
+    ['Lønomkostning pr. år', A.labor, B.labor, 'low', 0, ' kr', 'sep'],
+    ['Pallepladser', A.places, B.places, 'high', 0, '', 'sep'],
+    ['Lagerareal', A.area, B.area, null, 0, ' m²'],
+    ['m² pr. palleplads', A.m2Place, B.m2Place, 'low', 2, ' m²'],
+    ['Lageromkostning pr. år', A.space, B.space, null, 0, ' kr'],
+    ['Samlet pr. år (løn + lager)', A.total, B.total, null, 0, ' kr', 'sep']
+  ];
+  $('cmp').innerHTML = `<thead><tr><th>Mål</th><th>${na}</th><th>${nb}</th></tr></thead><tbody>` +
+    rows.map(([l,a,b,better,d,u='',cls])=>{
+      const wa = better && Math.abs(a-b) > 1e-9 && (better==='low' ? a<b : a>b);
+      const wb = better && Math.abs(a-b) > 1e-9 && !wa;
+      return `<tr${cls?` class="${cls}"`:''}><td>${l}</td><td class="num${wa?' win':''}">${nf(a,d)}${u}</td><td class="num${wb?' win':''}">${nf(b,d)}${u}</td></tr>`;
+    }).join('') + '</tbody>';
+
+  const pct = (x,y) => Math.round((1 - x/y)*100);
+  const fast = A.secOrder <= B.secOrder ? [na,nb,A.secOrder,B.secOrder] : [nb,na,B.secOrder,A.secOrder];
+  const tight = A.m2Place <= B.m2Place ? [na,nb,A.m2Place,B.m2Place] : [nb,na,B.m2Place,A.m2Place];
+  $('verdict').innerHTML =
+    `<p><b>${fast[0]}</b> bruger ${pct(fast[2],fast[3])} % mindre tid pr. ordre end ${fast[1]}.</p>` +
+    `<p><b>${tight[0]}</b> bruger ${pct(tight[2],tight[3])} % mindre gulvareal pr. palleplads end ${tight[1]}.</p>`;
+
+  const mx = Math.max(A.secOrder, B.secOrder) || 1;
+  $('chart').innerHTML = [[na,A],[nb,B]].map(([n,r])=>
+    `<div class="bar-row"><span class="lbl" title="${n}">${n}</span><div class="bar" style="width:${(r.secOrder/mx*100).toFixed(1)}%">` +
+    CATS.map(([k,,c])=> r.perOrder[k] > 0 ? `<span style="width:${(r.perOrder[k]/r.secOrder*100).toFixed(2)}%;background:var(${c})" title="${nf(r.perOrder[k]/60,1)} min"></span>` : '').join('') +
+    `</div><span class="tot">${nf(r.secOrder/60,1)} min</span></div>`).join('');
+  $('legend').innerHTML = CATS.map(([,t,c])=>`<span><i style="background:var(${c})"></i>${t}</span>`).join('');
+}
+
+let saved = null;
+try { saved = JSON.parse(localStorage.getItem('plukrunde-v1')); } catch(e){}
+fill(saved && saved.sh && saved.a && saved.b ? {sh:{...DEF.sh,...saved.sh},a:{...DEF.a,...saved.a},b:{...DEF.b,...saved.b}} : DEF);
+let timer;
+document.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(render, 120); });
+document.addEventListener('change', render);
+$('reset').addEventListener('click', () => { fill(DEF); render(); });
+render();
+</script>
+</body>
+</html>
